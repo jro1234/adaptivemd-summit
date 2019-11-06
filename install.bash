@@ -38,7 +38,7 @@ PREINSTALL[2]="cd mdtraj-nogeo"
 PREINSTALL[3]="python setup.py develop"
 
 # CUDA module line saved in ADMD_PROFILE
-CUDA_MODULE="module load cuda"
+CUDA_MODULE="module load cuda/10.1.168"
 
 # Runtime preferences and specifics for your cluster
 ADMD_LOGLEVEL="INFO"
