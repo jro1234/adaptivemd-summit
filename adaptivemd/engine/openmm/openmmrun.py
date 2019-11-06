@@ -42,7 +42,7 @@ from simtk.openmm.app import PDBFile, Simulation, DCDReporter, StateDataReporter
 
 def get_xml(xml_file):
     attempt = 0
-    retries = 10
+    retries = 500
 
     if not xml_file.endswith('.xml'):
         raise IOError("{} must end in '.xml' for reading as XML file".format(xml_file))
@@ -65,7 +65,7 @@ def get_xml(xml_file):
 
 def get_platform(platform_name):
     attempt = 0
-    retries = 10
+    retries = 500
 
     if platform_name == 'fastest':
         platform = None
@@ -87,7 +87,7 @@ def get_platform(platform_name):
 
 def get_pdbfile(topology_pdb):
     attempt = 0
-    retries = 10
+    retries = 500
 
     if not topology_pdb.endswith('.pdb'):
         raise IOError("{} must end in '.pdb' for reading as PDB file".format(topology_pdb))
