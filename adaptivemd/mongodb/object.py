@@ -24,7 +24,6 @@
 # <http://www.openpathsampling.org> or
 # <http://github.com/openpathsampling/openpathsampling
 # for details and license
-from __future__ import absolute_import, print_function
 
 from uuid import UUID
 from weakref import WeakValueDictionary
@@ -481,7 +480,7 @@ class ObjectStore(StorableMixin):
 
         return modified
 
-    def _load(self, idx, builders=[]):
+    def _load(self, idx, builders=list()):
         one = self._document.find_one({'_id': str(UUID(int=idx))})
         obj = self.storage.simplifier.from_simple_dict(one, builders)
         obj.__store__ = self
@@ -659,7 +658,7 @@ class ObjectStore(StorableMixin):
         idx = self._document.find_one(dct)['_id']
         return self.load(int(UUID(idx)))
 
-    def load(self, idx, builders=[], force_load=False):
+    def load(self, idx, builders=list(), force_load=False):
         """
         Returns an object from the storage.
 

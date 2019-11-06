@@ -24,7 +24,6 @@
 # <http://www.openpathsampling.org> or
 # <http://github.com/openpathsampling/openpathsampling
 # for details and license
-from __future__ import absolute_import, print_function
 
 import base64
 import importlib
@@ -522,7 +521,7 @@ class ObjectJSON(object):
     # def unit_from_json(self, json_string):
     #     return self.unit_from_dict(self.from_json(json_string))
 
-    def from_simple_dict(self, simplified, builder=None):
+    def from_simple_dict(self, simplified, builders=list()):
         obj = self.build(simplified)
 
         obj.__uuid__ = int(UUID(simplified.get('_id')))
@@ -534,10 +533,10 @@ class ObjectJSON(object):
         for key in obj._find_by:
 
             if key in simplified:
-                if builder is None:
-                    builder = obj
+                if obj not in builders:
+                    builders.append(obj)
 
-                setattr(obj, key, self.build(simplified[key], builder))
+                setattr(obj, key, self.build(simplified[key], builders))
 
         return obj
 
@@ -581,7 +580,7 @@ class UUIDObjectJSON(ObjectJSON):
 
         return super(UUIDObjectJSON, self).simplify(obj, base_type)
 
-    def build(self, obj, builder=None):
+    def build(self, obj, builders=list()):
         if type(obj) is dict:
             if '_storage' in obj:
                 if obj['_storage'] == 'self':
@@ -608,14 +607,19 @@ class UUIDObjectJSON(ObjectJSON):
                 #  builder --> builders :: list
                 #  build, from_simple_dict, and
                 #  object.load, object._load
-                if builder and builder.__uuid__ == _long:
-                    result = builder
+                for builder in builders:
+                    if builder.__uuid__ == _long:
+                        result = builder
+                        break
+
+                #if builders and builders[0].__uuid__ == _long:
+                #    result = builders[0]
 
                 else:
                     load_args = [ _long ]
 
-                    if builder:
-                        load_args.append(builder)
+                    if builders:
+                        load_args.append(builders)
 
                     try:
                         result = store.load(*load_args)
