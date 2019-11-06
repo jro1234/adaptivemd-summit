@@ -141,10 +141,7 @@ def explore_macrostates(project, n_frames=1, reversible=True, n_macrostates=None
 
     # TODO   MOVE TO analysis task: adaptivemd.analysis.pyemma._remote
     import time
-    import pyemma
-    import msmtools
 
-    pyemma.config.show_progress_bars = False
     starttime = time.time()
     logger.info("Using 'explore macrostates' sampling function")
     logger.info("Starting Timer at: {}".format(starttime))
@@ -176,6 +173,9 @@ def explore_macrostates(project, n_frames=1, reversible=True, n_macrostates=None
         array_ok = data['msm']['connected_states']
 
     else:
+        import pyemma
+        import msmtools
+        pyemma.config.show_progress_bars = False
         array_ok  = msmtools.estimation.largest_connected_set(c)
         # TODO is this the correct place to judge n_macrostates?
         n_macrostates = max(min(n_macrostates, array_ok.shape[0] // 5), 2)
@@ -256,6 +256,11 @@ def explore_macrostates(project, n_frames=1, reversible=True, n_macrostates=None
 
     for i in range(n_frames):
         selected_macrostate_mask      = (corrected == selected_macrostate[i])
+        # Block selection of microstates with no full frames
+        mi_in_ma = np.squeeze(np.argwhere(selected_macrostate_mask))
+        if len(mi_in_ma.shape) == 0:
+            mi_in_ma = mi_in_ma[..., np.newaxis]
+        selected_macrostate_mask[list(filter(lambda mi: len(frame_state_list[mi])==0, mi_in_ma))] = False
         logger.info("Macrostate Selection Mask: ({0})\n{1}".format(selected_macrostate[i], selected_macrostate_mask))
         #counts_in_selected_macrostate = counts[selected_macrostate_mask]
         # NOTE using ones means each microstate within macrostate equally likely
@@ -277,3 +282,113 @@ def explore_macrostates(project, n_frames=1, reversible=True, n_macrostates=None
 
     return trajlist
 
+
+def slowest_process(project, n_frames=1, reversible=True, n_macrostates=None, **kwargs):
+    '''Inverse-count sampling of macrostates
+    '''
+
+    model_parameters = {
+        'tica':       ['lagtime','stride'],
+        'clustering': ['k'],
+        'msm':        ['lagtime']
+    }
+
+    def select_restart_state(values, states, nparallel=1, select_type='sto_inv_linear', parameters=None):
+        if select_type == 'sto_inv_linear':
+            if not isinstance(values, np.ndarray):
+                values = np.array(values)
+            inv_values = np.zeros(values.shape)
+            inv_values[values > 0] = 1.0 / values[values > 0]
+            p = inv_values / np.sum(inv_values)
+            logger.info("Values: {}".format(values))
+            logger.info("Problt: {}".format(p))
+        else:
+            logger.info("Unsupported selection type")
+            return
+        return np.random.choice(states, p=p, size=nparallel)
+
+    import time
+
+    starttime = time.time()
+    logger.info("Using 'slowest process' sampling function")
+    logger.info("Starting Timer at: {}".format(starttime))
+    model_filters  = {}
+
+    for mod,pars in model_parameters.items():
+        for par in pars:
+            key = '.'.join([mod,par])
+            val = kwargs.get(key)
+            if val is not None:
+                model_filters[key] = val
+
+    try:
+        data = get_model(project, model_filters).data
+        #c = data['msm']['C']
+
+    except TypeError:
+        # No matching models
+        return [] # No trajs made
+        #raise    # Backup method may be used
+
+    #counts = np.array(np.sum(c, axis=1), dtype=int)
+    if 'msm.slow' in data:
+        logger.info("Reading existing Grouping along slowest process")
+        macrostate_assignments_along_slowest = data['msm.slow']['groups']
+        n_macrostates = np.unique(macrostate_assignments_along_slowest).shape[0]
+
+    else:
+        # Don't have the correct analysis done
+        return []
+
+    logger.info("Macrostate assignment of microstates along slowest process: {}".format(macrostate_assignments_along_slowest))
+
+    frame_state_list = list_microstate_frames(data)
+    macrostate_counts = np.array([1]*n_macrostates)
+
+    # This loop catches states where a protein traj
+    # frame showed up but not all atoms, so cannot
+    # restart simulation
+    for macrostate in np.unique(macrostate_assignments_along_slowest):
+        microstates_in_macrostate = np.squeeze(np.argwhere(macrostate_assignments_along_slowest==macrostate))
+        if len(microstates_in_macrostate.shape) == 0:
+            microstates_in_macrostate = microstates_in_macrostate[..., np.newaxis]
+        if sum([len(frame_state_list[mi]) for mi in microstates_in_macrostate]) == 0:
+            macrostate_counts[macrostate] = 0
+
+    logger.info("Macrostate Occupancy (if any frame is there): {}".format(macrostate_counts))
+
+    occupied_macrostates = list(np.squeeze(np.argwhere(macrostate_counts)))
+    selected_macrostate = occupied_macrostates * (n_frames // len(occupied_macrostates)) + occupied_macrostates[: (n_frames % len(occupied_macrostates)) ]
+
+    logger.info("Selected Restarting Macrostates: {}".format(selected_macrostate))
+    restart_state = np.empty((0))
+
+    for i in range(n_frames):
+        #microstates_in_macrostate = np.squeeze(np.argwhere(macrostate_assignments_along_slowest==selected_macrostate[i]))
+        selected_macrostate_mask = (macrostate_assignments_along_slowest == selected_macrostate[i])
+        # Block selection of microstates with no full frames
+        mi_in_ma = np.squeeze(np.argwhere(selected_macrostate_mask))
+        if len(mi_in_ma.shape) == 0:
+            mi_in_ma = mi_in_ma[..., np.newaxis]
+
+        selected_macrostate_mask[list(filter(lambda mi: len(frame_state_list[mi])==0, mi_in_ma))] = False
+
+        logger.info("Macrostate Selection Mask: ({0})\n{1}".format(selected_macrostate[i], selected_macrostate_mask))
+        # NOTE using ones means each microstate within macrostate equally likely
+        microstate_weights = [1] * len(mi_in_ma)
+        add_microstate = select_restart_state(
+            microstate_weights,
+            mi_in_ma,
+        )
+        logger.info("Selected Macrostate, microstate: {0}, {1}".format(selected_macrostate[i], add_microstate))
+        restart_state                 = np.append(restart_state, add_microstate)
+
+    state_picks  = restart_state.astype('int')
+    filelist = data['input']['trajectories']
+    trajlist = get_picks(frame_state_list, filelist, n_frames, data=None, state_picks=state_picks)
+    #trajlist = get_picks(frame_state_list, filelist, n_frames, data=data, state_picks=state_picks)
+    stoptime = time.time()
+    logger.info("Stopping Timer at: {}".format(stoptime))
+    logger.info("Slowest Process duration: {}".format(stoptime - starttime))
+
+    return trajlist
