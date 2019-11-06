@@ -317,7 +317,7 @@ class JobLauncher(object):
 
         return filled
 
-    def launch_job(self, job_path=None):
+    def launch_job(self, job_path=None, return_command=False):
         '''Build the launch command and execute it
         if the configuration is complete, ie keys
         all have values.
@@ -332,19 +332,25 @@ class JobLauncher(object):
 
             logger.info("Job Launcher")
             logger.info(" -- " + job_launcher)
+
             if self.__class__._live_:
+
                 self._write_script("# Job submitted with command:\n# %s" % job_launcher)
 
-                out, retval = small_proc_watch_block(
-                   job_launcher)
+                if not return_command:
+                    out, retval = small_proc_watch_block(
+                       job_launcher)
 
-                # FIXME confusing stdout with returncode
-                logger.info(out)
-                logger.info("")
-                logger.info(
-                    "Any errors during submission? (0 means no, i.e. good thing)")
-                logger.info(retval)
-                logger.info("")
+                    # FIXME confusing stdout with returncode
+                    logger.info(out)
+                    logger.info("")
+                    logger.info(
+                        "Any errors during submission? (0 means no, i.e. good thing)")
+                    logger.info(retval)
+                    logger.info("")
+
+                else:
+                    return job_launcher
 
             else:
                 logger.info("Not launching now")

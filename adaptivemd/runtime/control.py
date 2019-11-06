@@ -85,6 +85,7 @@ def create_workload_launcher(project, workload, session, args, cwd):
     jobconfig["cpu_per_node"] = project.configuration.resource["cpu_per_node"]
     jobconfig["cpu_per_task"] = cpu_per_task
     jobconfig["gpu_per_node"] = project.configuration.resource["gpu_per_node"]
+    jobconfig["profile"]      = project.configuration.resource["profile"]
     jobconfig["allocation"]   = project.configuration.user["allocation"]
 
     dburl = os.environ.get("ADMD_DBURL", "")

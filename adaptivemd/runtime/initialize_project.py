@@ -15,9 +15,9 @@ logger = get_logger(__name__)
 __all__ = ["initialize_project"]
 
 
-def initialize_project(p_name, sys_name=None, m_freq=None, p_freq=None, platform=None, features=None, config=None):
+def initialize_project(p_name, sys_name=None, m_freq=None, p_freq=None, platform=None, features=None, config_file=None, config_name=None):
 
-    logger.info("This run is using config file: %s" % config)
+    logger.info("This run is using config file: %s" % config_file)
     dburl = os.environ.get("ADMD_DBURL", False)
 
     if dburl:
@@ -34,8 +34,8 @@ def initialize_project(p_name, sys_name=None, m_freq=None, p_freq=None, platform
 
         project = Project(p_name)
         # TODO
-        #if config:
-        #    do-something-to-use-given-config
+        #if config_file:
+        #    do-something-to-use-given-config_file
 
     elif not all([sys_name, m_freq, p_freq, platform]):
 
@@ -47,7 +47,7 @@ def initialize_project(p_name, sys_name=None, m_freq=None, p_freq=None, platform
     else:
 
         project = Project(p_name)
-        project.initialize(config)
+        project.initialize(config_file)
 
         f_name = '{0}.pdb'.format(sys_name)
 
@@ -93,5 +93,9 @@ def initialize_project(p_name, sys_name=None, m_freq=None, p_freq=None, platform
         project.generators.add(engine)
 
         #[print(g) for g in project.generators]
+
+    if config_name:
+        logger.info("Setting current configuration to %s" % config_name)
+        project.set_current_configuration(config_name)
 
     return project

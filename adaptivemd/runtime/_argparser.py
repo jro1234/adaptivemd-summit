@@ -40,6 +40,10 @@ def get_argparser():
     parser.add_argument("--rp", action="store_true",
         help="Use RP" )
 
+    parser.add_argument("--config_name",
+        help="Name of config definition to use",
+        type=str)
+
     parser.add_argument("-C","--config",
         help="Path to config file",
         default="admd.yaml")

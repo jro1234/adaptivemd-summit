@@ -32,8 +32,8 @@ def workflow_generator_simple(
     cpu_threads = 8,
     fixedlength = True,
     startontraj = 0, # TODO None and extra condition if set
-    admd_profile = None,
     analysis_cfg = None,
+    admd_profile = None,
     min_model_trajlength = 0, # TODO None and extra condition if set
     sampling_function_name = 'explore_macrostates',
 
@@ -48,7 +48,7 @@ def workflow_generator_simple(
         sampling_function_name, **sfkwargs,
     )
 
-    resource_requirements = dict() # TODO calculate request
+    resource_requirements = dict(resource_name=project.configuration.name) # TODO calculate request
     qkwargs = dict(sleeptime=batchsleep, batchsize=batchsize, wait=batchwait)
 
     if progression == 'all':
@@ -91,6 +91,7 @@ def workflow_generator_simple(
 
         for traj in project.new_trajectory(engine['pdb_file'], n_steps, engine, n_traj):
             tasks.append(traj.run(**resource_requirements))
+
             if admd_profile: # This should be path to an RC file
                 tasks[-1].pre.insert(0, "source %s" % admd_profile)
 
@@ -118,6 +119,8 @@ def workflow_generator_simple(
             with open(analysis_cfg, 'r') as f:
                 _margs = yaml.safe_load(f)
 
+            #logger.info(pformat(_margs))
+            #update_margs = lambda rn: _margs[rn]
             update_margs = lambda rn: _margs[
                 max(list(filter(
                 lambda mi: mi <= rn, _margs)))
