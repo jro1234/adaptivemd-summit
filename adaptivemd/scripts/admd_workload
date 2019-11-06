@@ -81,6 +81,7 @@ DLM=":"
 DBHOME=$(echo ${11} | awk -F"$DLM" '{print $1}')
 DBPORT=$(echo ${11} | awk -F"$DLM" '{print $2}')
 DBPERSIST=$(echo ${11} | awk -F"$DLM" '{print $3}')
+CFGNAME=$(echo ${11} | awk -F"$DLM" '{print $4}')
 
 # Fill in to use default port if None was given
 if [ -z "$DBPORT" ]
@@ -130,6 +131,10 @@ then
     EXECFLAG+=" --persist"
 fi
 
+if [ ! -z "$CFGNAME" ]
+then
+    EXECFLAG+=" --config_name $CFGNAME"
+fi
 
 #------------------------------------------------------------------------------#
 # Formulating args for adaptivemdruntime
@@ -143,15 +148,16 @@ then
   initializer+=" -P $PLATFORM -p $PFREQUENCY -m $MFREQUENCY"
 fi
 
-if [ ! -z "$ROUND_N" ]
+if [ ! -z "$ROUNDNUMBER" ]
 then
-  generator+=" -R $ROUND_N"
+  generator+=" -R $ROUNDNUMBER"
 fi
 
 generator+=" -r $ADMD_PROFILE"
 generator+=" -s $BATCHSLEEP -c $BATCHSIZE $BATCHWAIT"
 generator+=" --progress $PROGRESS"
 generator+=" -l $MDSTEPS -k $TRAJSTEPS"
+generator+=" -a $AFTERNTRAJS"
 
 if [[ "$WORKLOAD" = "cleanup" ]]
 then
@@ -161,7 +167,7 @@ then
   generator+=" -N $NTRAJS -S $SAMPLEFUNC"
 elif [[ "$WORKLOAD" = "model" ]]
 then
-  generator+=" -M pyemma -N 0 -a $AFTERNTRAJS"
+  generator+=" -M pyemma -N 0 --min_model_trajlength $MODELTRAJLENGTH"
 elif [[ "$WORKLOAD" = "all" ]]
 then
   generator+=" -N $NTRAJS"
@@ -190,6 +196,11 @@ then
     echo "Found existing mongodb instance on port $DBPORT"
 else
     echo "Starting database in directory '$DBHOME' on port '$DBPORT'"
+    while [ -S "$DBHOME/socket/mongodb-${DBPORT}.sock" ]; do
+        echo "Waiting for mongod release"
+        sleep 3
+    done
+    sleep 3
     MPID="$(launch_amongod $DBHOME $DBPORT)"
     echo "Mongo DB process ID: $MPID"
 fi
@@ -233,6 +244,7 @@ if [ ! "$DBPERSIST" = "persist" ]
 then
     echo "Killing Mongo DB Process: $MPID"
     kill $MPID
+    sleep 3
 else
     echo "Mongod will persist on client application side"
     list_mongods

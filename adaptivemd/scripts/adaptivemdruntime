@@ -63,7 +63,8 @@ if __name__ == '__main__':
         logger.info("Initializing Project named: " + args.project_name)
         logger.info("Recieved Arguments:\n{}".format(args))
         logger.info("Project opening")
-        logger.debug("with config %s"%args.config)
+        logger.debug("with configs from file    : %s"%args.config)
+        logger.debug("and selecting config named: %s"%args.config_name)
 
         project = initialize_project(
             args.project_name,
@@ -72,7 +73,8 @@ if __name__ == '__main__':
             p_freq   = args.prot,
             platform = args.platform,
             features = args.features_cfg,
-            config   = args.config,
+            config_file = args.config,
+            config_name = args.config_name,
         ) 
 
         logger.debug("Project opened")
@@ -255,7 +257,7 @@ if __name__ == '__main__':
                     cpu_threads = args.threads,
                     fixedlength = True,#args.fixedlength,
                     startontraj = args.after_n_trajs,
-                    admd_profile = None,#args.rc,
+                    admd_profile = None,#args.config,
                     analysis_cfg = args.analysis_cfg,
                     min_model_trajlength = args.min_model_trajlength,
                     sampling_function_name = args.sampling_method,
@@ -290,8 +292,20 @@ if __name__ == '__main__':
                     wl = create_workload_launcher(project, new_tasks, session, args, _cwd_)
                     logger.debug(pformat(wl.job_configuration))
 
-                    wl.launch_job(session)
-                    _exitval_ = os.path.join(session, "admd.job.state")
+                    if str(args.config_name).startswith("rhea"):
+
+                        from time import sleep
+
+                        submit_command = wl.launch_job(session, return_command=True)
+                        #project.request_resource(submit_command)
+                        with open("resource.request", "w") as f:
+                            f.write(submit_command)
+
+                        _exitval_ = os.path.join(session, "admd.job.state")
+
+                    else:
+                        wl.launch_job(session)
+                        _exitval_ = os.path.join(session, "admd.job.state")
 
             else:
                 logger.info("Project waiting on completion event for last workload")
