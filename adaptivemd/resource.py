@@ -43,29 +43,35 @@ class Resource(StorableMixin):
 
     """
 
-    def __init__(self, total_time, total_nodes,
-                 total_cpus=None, total_gpus=None, destination=""):#, name):
-
+    def __init__(self, submit_command):
         super(Resource, self).__init__()
 
-        #assert isinstance(name, str)
-        #self.name = name
+        self.submit_command = submit_command
+        self.state = "inactive"
 
-        assert isinstance(total_time, int)
-        self.total_time = total_time
+    #def __init__(self, total_time, total_nodes,
+    #             total_cpus=None, total_gpus=None, destination=""):#, name):
 
-        assert isinstance(total_nodes, int)
-        self.total_nodes = total_nodes
+    #    super(Resource, self).__init__()
 
-        if total_cpus:
-            assert isinstance(total_cpus, int)
-            self.total_cpus = total_cpus
+    #    #assert isinstance(name, str)
+    #    #self.name = name
 
-        if total_gpus:
-            assert isinstance(total_gpus, int)
-            self.total_gpus = total_gpus
+    #    assert isinstance(total_time, int)
+    #    self.total_time = total_time
 
-        if destination:
-            assert isinstance(destination, str)
-            self.destination = destination
+    #    assert isinstance(total_nodes, int)
+    #    self.total_nodes = total_nodes
+
+    #    if total_cpus:
+    #        assert isinstance(total_cpus, int)
+    #        self.total_cpus = total_cpus
+
+    #    if total_gpus:
+    #        assert isinstance(total_gpus, int)
+    #        self.total_gpus = total_gpus
+
+    #    if destination:
+    #        assert isinstance(destination, str)
+    #        self.destination = destination
 

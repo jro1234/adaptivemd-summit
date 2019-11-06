@@ -106,11 +106,11 @@ class Configuration(StorableMixin):
             "netdevice"    : (str, "eth0"),
             # TODO upgrade queue to queues
             #"queues"       : (list, list()),
-            "queue"       : (str, str()),
+            "queue"        : (str, str()),
             "allocation"   : (str, str()),
             "cpu_per_node" : (int, 1),
             "gpu_per_node" : (int, 0),
-            "current"      : (bool, False),
+            "profile"      : (str, "$HOME/admd.bashrc"),
         },
         USER: {
             "allocation": (str, str()),
@@ -137,6 +137,8 @@ class Configuration(StorableMixin):
             "launcher": (dict, dict()),
         },
     }
+
+    current = SyncVariable('current')
 
     # TODO init from passed dict
     def __init__(self, name, wrapper=None, **fields):
@@ -165,6 +167,9 @@ class Configuration(StorableMixin):
             wrapper = DummyTask()
 
         self.wrapper = wrapper
+
+        if not hasattr(self, "current"):
+            self.current = False
 
     def match_tasks_to_resource(self):
         '''Use resource config to finalize task specs
