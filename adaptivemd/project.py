@@ -205,14 +205,13 @@ class Project(object):
                 self._current_configuration = cur
 
             else:
-                logger.warning("Current configuration pattern must match a single item\n"
-                      "Arbitrarily selecting the last matching entry: Configuration.name=={0}"
-                      .format(cfg[-1].name))
-
-                self.set_current_configuration(cfg[-1])
+                logger.error("Configuration selection must match a single item")
 
         else:
             logger.error("Did not set a new current configuration")
+            logger.error("Setting current to Summit")
+            self.configurations.a("name", "summit").one.current = True
+            logger.error(["%s: %s" % (c.name, str(c.current)) for c in self.configurations])
 
     def read_configurations(self, configuration_file=None, default_configuration=None):
         '''
@@ -356,8 +355,9 @@ class Project(object):
         else:
             logger.warning("Not reinitializing project")
 
-    def request_resource(self, total_cpus, total_time,
-                         total_gpus=0, destination=''):
+    def request_resource(self, submit_command, destination=""):
+    #def request_resource(self, total_cpus, total_time,
+    #                     total_gpus=0, destination=''):
         '''
         Request to use a resource for Radical Pilot.
 
@@ -380,14 +380,12 @@ class Project(object):
 
         '''
 
-        # TODO  resource requests should be marked as
-        #       unused,inuse,done, failed, instead
-        #       of current unmanaged model.
         if destination == 'current':
             destination = self._current_configuration.resource["resource_name"]
 
-        r = Resource(total_cpus, total_time,
-                     total_gpus, destination)
+        r = Resource(submit_command)
+        #r = Resource(total_cpus, total_time,
+        #             total_gpus, destination)
 
         self.resources.add(r)
 
