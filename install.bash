@@ -11,7 +11,7 @@
 #     version on your cluster with OpenMM
 #     version via configuration below
 
-USER="bif112"
+USER="bip189"
 CWD="$(pwd)"
 
 # Line to install AdaptiveMD itself via this
