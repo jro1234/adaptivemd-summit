@@ -165,6 +165,7 @@ def remote_analysis(
 
     import pyemma
     import msmtools
+    import numpy as np
     import mdtraj as md
 
     pdb = md.load(topfile)
@@ -227,7 +228,7 @@ def remote_analysis(
                              **kwargs)
         
             elif isinstance(parts, (list, tuple)):
-                return [apply_feat_part(feat, q)
+                return [apply_feat_part(featurizer, q)
                         for q in parts]
             else:
                 return parts
@@ -300,19 +301,53 @@ def remote_analysis(
 
     if n_macrostates:
 
-        pcca = m.pcca(n_macrostates)
-        # TODO is there a way to init a PCCA object?
-        #      in msmtools.analysis.dense.pcca doesn't look like it
-        #      then save reqd attrs to use on agent side
-        data.update({
-            'cgmsm': {
-                'm': n_macrostates,
-                'P': pcca.coarse_grained_transition_matrix,
-                'pi': pcca.coarse_grained_stationary_probability,
-                'metastable_memberships': m.metastable_memberships,
-                'metastable_sets': m.metastable_sets,
-                'metastable_assignments': m.metastable_assignments,
-            }
-        })
+        if n_macrostates < 0:
+
+            def MinMaxScale(X, min=-1, max=1):
+                X_std = (X - X.min(axis=0)) / (X.max(axis=0) - X.min(axis=0))
+                X_scaled = X_std * (max - min) + min
+                return X_scaled
+
+            n_macrostates = int(0 - n_macrostates)
+            #
+            #  k-means Macrostates
+            #
+            current_timescales = m.timescales()
+            current_eigenvecs  = np.real(m.eigenvectors_right())#num_eigenvecs_to_compute)
+            #current_eigenvals  = np.real(current_MSM_obj.eigenvalues())
+            #num_eigenvecs_to_compute = current_eigenvecs.shape[0]
+            num_eigenvecs_to_compute = 4
+            projected_microstate_coords_scaled = MinMaxScale(current_eigenvecs[:,1:num_eigenvecs_to_compute])
+            projected_microstate_coords_scaled *= np.sqrt(current_timescales[:num_eigenvecs_to_compute-1] / current_timescales[0]).reshape(1, num_eigenvecs_to_compute-1)
+            #kin_cont = np.cumsum(-1./np.log(np.abs(current_eigenvals[1:])))/2.
+            #frac_kin_content=0.9
+            #cut = kin_cont[kin_cont < kin_cont.max()*frac_kin_content]
+            num_kmeans_iter = 200
+            kmeans_obj      = pyemma.coordinates.cluster_kmeans(data=projected_microstate_coords_scaled, k=n_macrostates, max_iter=num_kmeans_iter)
+            macrostate_assignment_of_visited_microstates = kmeans_obj.assign()[0]
+            data.update({'msm.slow': {'groups': macrostate_assignment_of_visited_microstates}})
+
+        else:
+            #  pcca = m.pcca(n_macrostates)
+            # TODO is there a way to init a PCCA object?
+            #      in msmtools.analysis.dense.pcca doesn't look like it
+            #      then save reqd attrs to use on agent side
+            c = data['msm']['C']
+            #array_ok  = msmtools.estimation.largest_connected_set(c)
+            #connected = msmtools.estimation.is_connected(c[array_ok,:][:,array_ok])
+            array_ok  = data['msm']['connected_states']
+            p = msmtools.estimation.transition_matrix(c[array_ok,:][:,array_ok], reversible=reversible)
+            mconn = pyemma.msm.markov_model(p)
+            pcca = mconn.pcca(n_macrostates)
+            data.update({
+                'cgmsm': {
+                    'm': n_macrostates,
+                    'P': pcca.coarse_grained_transition_matrix,
+                    'pi': pcca.coarse_grained_stationary_probability,
+                    'metastable_memberships': mconn.metastable_memberships,
+                    'metastable_sets': mconn.metastable_sets,
+                    'metastable_assignments': mconn.metastable_assignments,
+                }
+            })
 
     return data
