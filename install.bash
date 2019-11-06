@@ -11,7 +11,7 @@
 #     version on your cluster with OpenMM
 #     version via configuration below
 
-#USER="jrossyra"
+USER="bif112"
 CWD="$(pwd)"
 
 # Line to install AdaptiveMD itself via this
@@ -26,17 +26,23 @@ BUILD_CHIGNOLIN="yes"
 
 MONGO_VERSION="mongodb-linux-x86_64-3.6.13"
 #MONGO_VERSION="mongodb-linux-x86_64-3.2.22"
-CONDA_VERSION="Miniconda3-latest-Linux-x86_64"
+CONDA_VERSION="Miniconda3-latest-Linux-ppc64le"
 PYTHON_VERSION="3.7"
-PYEMMA_VERSION="pyemma"
-OPENMM_VERSION="openmm -c omnia/label/cuda100"
+PYEMMA_VERSION=""
+OPENMM_VERSION="openmm -c omnia-dev/label/cuda101"
+
+# Special requirements that need pre installing
+PREINSTALL[0]="conda install --yes cython numpy"
+PREINSTALL[1]="git clone https://github.com/jrossyra/mdtraj-nogeo"
+PREINSTALL[2]="cd mdtraj-nogeo"
+PREINSTALL[3]="python setup.py develop"
 
 # CUDA module line saved in ADMD_PROFILE
 CUDA_MODULE="module load cuda"
 
 # Runtime preferences and specifics for your cluster
 ADMD_LOGLEVEL="INFO"
-ADMD_NETDEVICE="eth0"
+ADMD_NETDEVICE="ib0"
 
 #-------------------------------------------------------------------#
 # Software locations configuration
@@ -47,16 +53,16 @@ ADMD_NETDEVICE="eth0"
 #         data vs simulation data
 
 # INSTALL_DIRNAME also the default Conda Env name
-INSTALL_DIRNAME="admd"
-ADMD_DATA="/gpfs/alpine/proj-shared/bif112/$USER/$INSTALL_DIRNAME/data"
-ADMD_SOFTWARE="/gpfs/alpine/proj-shared/bif112/$USER/$INSTALL_DIRNAME/software"
-ADMD_WORKFLOWS="/gpfs/alpine/proj-shared/bif112/$USER/$INSTALL_DIRNAME/workflows"
-ADMD_MDSYSTEMS="/gpfs/alpine/proj-shared/bif112/$USER/$INSTALL_DIRNAME/mdsystems"
-ADMD_SAMPLINGFUNCS="/gpfs/alpine/proj-shared/bif112/$USER/$INSTALL_DIRNAME/sampling"
+INSTALL_DIRNAME="admd-summit"
+ADMD_DATA="/gpfs/alpine/proj-shared/$USER/$INSTALL_DIRNAME/data"
+ADMD_WORKFLOWS="/gpfs/alpine/proj-shared/$USER/$INSTALL_DIRNAME/workflows"
+ADMD_SOFTWARE="/ccs/proj/$USER/$INSTALL_DIRNAME/software"
+ADMD_MDSYSTEMS="/ccs/proj/$USER/$INSTALL_DIRNAME/mdsystems"
+ADMD_SAMPLINGFUNCS="/ccs/proj/$USER/$INSTALL_DIRNAME/sampling"
 
 # This file contains all required runtime
 # environment configuration, built by installer
-ADMD_PROFILE="$HOME/admd.bashrc"
+ADMD_PROFILE="$HOME/admd-summit.bashrc"
 touch $ADMD_PROFILE
 
 #-------------------------------------------------------------------#
@@ -247,14 +253,22 @@ fi
 
 conda create  --yes -n $ADMD_ENV_NAME python=$PYTHON_VERSION
 source activate $ADMD_ENV_NAME
+
+cd $ADMD_SOFTWARE
+for line in "${PREINSTALL[@]}"; do
+    eval $line
+done
+
+cd $ADMD_SOFTWARE
 conda install --yes $OPENMM_VERSION
 conda install --yes $PYEMMA_VERSION
 
-# something weird goes on with the yaml and pyyaml
+# something weird goes on with the yaml and pyyaml on some systems
 conda install --yes --force-reinstall pyyaml
 
 echo ">>>>>>>>>>>> ADMD_PROFILE >>>>>>>>>>>>>>>>>>>>>>>>"
 echo "export PATH=\"$ADMD_SOFTWARE/miniconda/bin:\$PATH\"" | tee -a $ADMD_PROFILE
+echo "export PATH=\"$(dirname $(which python)):\$PATH\"" | tee -a $ADMD_PROFILE
 echo "" | tee -a $ADMD_PROFILE
 echo "# 'activate' now in PATH" | tee -a $ADMD_PROFILE
 echo "# TODO maybe? conda activate $ADMD_ENV_NAME... but seems" | tee -a $ADMD_PROFILE
