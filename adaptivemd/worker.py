@@ -579,7 +579,7 @@ class Worker(StorableMixin):
         return obj
 
     def create(self, project):
-        scheduler = WorkerScheduler(project._current_configuration, self.verbose)
+        scheduler = WorkerScheduler(project.configurations.a("name","summit").one, self.verbose)
         scheduler._state_cb = self._state_cb
         self._scheduler = scheduler
         self._project = project
