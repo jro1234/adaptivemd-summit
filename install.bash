@@ -11,7 +11,8 @@
 #     version on your cluster with OpenMM
 #     version via configuration below
 
-USER="bip189"
+
+USER="bip189/jrob"
 CWD="$(pwd)"
 
 # Line to install AdaptiveMD itself via this
@@ -20,11 +21,11 @@ INSTALL_ADAPTIVEMD="python setup.py develop"
 
 # Type "yes" here to build the chignolin test system
 #  - installs `parmed` and uses Charmm22star forcefield
-BUILD_CHIGNOLIN="yes"
+BUILD_CHIGNOLIN="no"
 
 # TODO mongo via conda, mongo 4.0
 
-MONGO_VERSION="mongodb-linux-x86_64-3.6.13"
+MONGO_VERSION=""
 #MONGO_VERSION="mongodb-linux-x86_64-3.2.22"
 CONDA_VERSION="Miniconda3-latest-Linux-ppc64le"
 PYTHON_VERSION="3.7"
@@ -62,7 +63,9 @@ ADMD_SAMPLINGFUNCS="/ccs/proj/$USER/$INSTALL_DIRNAME/sampling"
 
 # This file contains all required runtime
 # environment configuration, built by installer
-ADMD_PROFILE="$HOME/admd-summit.bashrc"
+ADMD_PROFILE="/ccs/proj/$USER/${INSTALL_DIRNAME}.bashrc"
+echo "dirname $ADMD_PROFILE"
+dirname $ADMD_PROFILE | xargs mkdir
 touch $ADMD_PROFILE
 
 #-------------------------------------------------------------------#
