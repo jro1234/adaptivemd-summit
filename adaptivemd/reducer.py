@@ -22,7 +22,7 @@
 from six import string_types
 
 from .file import (AddPathAction, FileAction, FileTransaction, MakeDir,
-                   Copy, Transfer, Link, Move, Remove, Touch)
+                   Copy, Transfer, Link, HardLink, Move, Remove, Touch)
 
 import os
 
@@ -170,13 +170,15 @@ class BashParser(ActionParser):
 
                             return [
                                 'mkdir -p %s' % tp,         # create target dir if not exist
-                                'mv %s* %s' % (sp, tp),     # move all files
+                                #'mv %s* %s' % (sp, tp),     # move all files
+                                'until mv %s* %s; do echo "not moved yet"; sleep 1; done' % (sp, tp),     # move all files
                                 'rm -r %s' % sp]            # remove source dir
                         else:
                             if isinstance(action, Transfer):
                                 if td == 'file':
                                     tp = tp.split('://')[1]
 
+                            # this will catch subclasses ie HardLink
                             if isinstance(action, Link):
                                 # links must not end in `/`
                                 if action.target.is_folder:
@@ -359,6 +361,20 @@ stage_rules = {
         'bash_cmd': 'mv',
         'rp_action': 'Move'  # rp.MOVE
     },
+    HardLink: {
+        'file': {
+            ('staging', 'worker'): 'stage',
+            ('sandbox', 'worker'): 'bash',
+            ('shared', 'worker'): 'bash'
+        },
+        'folder': {
+            ('staging', 'worker'): 'bash',
+            ('sandbox', 'worker'): 'bash',
+            ('shared', 'worker'): 'bash'
+        },
+        'bash_cmd': 'ln',
+        'rp_action': 'Link'  # rp.LINK
+    },
     Link: {
         'file': {
             ('staging', 'worker'): 'stage',
@@ -372,5 +388,5 @@ stage_rules = {
         },
         'bash_cmd': 'ln -s',
         'rp_action': 'Link'  # rp.LINK
-    }
+    },
 }

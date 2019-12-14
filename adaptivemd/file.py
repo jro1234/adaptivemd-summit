@@ -417,7 +417,7 @@ class File(Location):
         target = self._complete_target(target)
         return Move(self, target)
 
-    def link(self, target=None):
+    def link(self, target=None, hard=False):
         """
         link file to a target
 
@@ -435,7 +435,10 @@ class File(Location):
 
         """
         target = self._complete_target(target)
-        return Link(self, target)
+        if hard:
+            return HardLink(self, target)
+        else:
+            return Link(self, target)
 
     def transfer(self, target=None):
         """
@@ -924,6 +927,14 @@ class Transfer(FileTransaction):
 
 
 class Link(FileTransaction):
+    """
+    An action that links a source file to a target
+
+    """
+    pass
+
+
+class HardLink(Link):
     """
     An action that links a source file to a target
 
