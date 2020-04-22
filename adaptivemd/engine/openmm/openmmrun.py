@@ -28,6 +28,7 @@ import numpy as np
 import mdtraj as md
 
 import time, random
+from datetime import datetime
 
 import traceback
 
@@ -42,7 +43,7 @@ from simtk.openmm.app import PDBFile, Simulation, DCDReporter, StateDataReporter
 
 def get_xml(xml_file):
     attempt = 0
-    retries = 500
+    retries = 10
 
     if not xml_file.endswith('.xml'):
         raise IOError("{} must end in '.xml' for reading as XML file".format(xml_file))
@@ -65,7 +66,7 @@ def get_xml(xml_file):
 
 def get_platform(platform_name):
     attempt = 0
-    retries = 500
+    retries = 10
 
     if platform_name == 'fastest':
         platform = None
@@ -87,7 +88,7 @@ def get_platform(platform_name):
 
 def get_pdbfile(topology_pdb):
     attempt = 0
-    retries = 500
+    retries = 10
 
     if not topology_pdb.endswith('.pdb'):
         raise IOError("{} must end in '.pdb' for reading as PDB file".format(topology_pdb))
@@ -144,7 +145,8 @@ if __name__ == '__main__':
 
     # For now, getting this crucial one from environment
     myDevices = os.environ.get("WORKERDEVICE", "0")
-    print("OpenMM Run Script can see these GPU devices: %s" % myDevices)
+    print("%s OpenMM Run Script can see these GPU devices: %s" % (
+        datetime.now().strftime("%Y:%m:%d %H:%M:%S.%f")[:-3], myDevices))
 
     # add further auto options here
     platform_properties = {
@@ -247,7 +249,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    print('GO...')
+    print('%s GO...' % datetime.now().strftime("%Y:%m:%d %H:%M:%S.%f")[:-3])
 
     properties = None
 
@@ -265,152 +267,169 @@ if __name__ == '__main__':
                     args.platform + '_' + v.replace('_', '')
                 ] = value
 
-    # Randomizes the order of file reading to
-    # alleviate traffic from synchronization
-    platform, pdb, (system_xml, system), (integrator_xml, integrator) \
-     = read_input(args.platform, args.topology_pdb,
-                  args.system_xml, args.integrator_xml)
-
-    platformName = platform.getName()
-    print("Name of platform in use: %s" % platformName)
-
-    if platformName == "CUDA":
-       print("Setting CudaDeviceIndex to: {}".format(myDevices))
-       platform.setPropertyDefaultValue('CudaDeviceIndex', myDevices)
-
-    elif platformName == "OpenCL":
-       print("Setting OpenCLDeviceIndex to: {}".format(myDevices))
-       platform.setPropertyDefaultValue('OpenCLDeviceIndex', myDevices)
-
-    print('Done')
-    print('Initialize Simulation')
-
-    try:
-        simulation = Simulation(
-            pdb.topology,
-            system,
-            integrator,
-            platform,
-            properties
-        )
-
-        print("SIMULATION: ", simulation)
-
-    except Exception as e:
-
-        print('EXCEPTION on host: ', (socket.gethostname()))
-        print(traceback.format_exc())
-        raise
-
-    print('Done.')
-
-    print('# platform used:', simulation.context.getPlatform().getName())
-
-    if args.verbose:
-        print('# platforms available')
-        for no_platform in range(Platform.getNumPlatforms()):
-            # noinspection PyCallByClass,PyTypeChecker
-            print('(%d) %s' % (no_platform, Platform.getPlatform(no_platform).getName()))
-
-        #print(os.environ)
-
-        print(Platform.getPluginLoadFailures())
-        print(Platform.getDefaultPluginsDirectory())
-
-    if args.restart:
-        arr = np.load(args.restart)
-        simulation.context.setPositions(arr['positions'] * u.nanometers)
-
-        simulation.context.setVelocities(arr['velocities'] * u.nanometers/u.picosecond)
-        simulation.context.setPeriodicBoxVectors(*arr['box_vectors'] * u.nanometers)
-
-    else:
-        simulation.context.setPositions(pdb.positions)
-        pbv = system.getDefaultPeriodicBoxVectors()
-        simulation.context.setPeriodicBoxVectors(*pbv)
-        # set velocities to temperature in integrator
+    n_retries = 0
+    retrying  = True
+    while retrying:
         try:
-            temperature = integrator.getTemperature()
-        except AttributeError:
-            assert args.temperature > 0
-            temperature = args.temperature * u.kelvin
+            # Randomizes the order of file reading to
+            # alleviate traffic from synchronization
+            platform, pdb, (system_xml, system), (integrator_xml, integrator) \
+             = read_input(args.platform, args.topology_pdb,
+                          args.system_xml, args.integrator_xml)
 
-        print('# temperature:', temperature)
+            platformName = platform.getName()
+            print("Name of platform in use: %s" % platformName)
 
-        simulation.context.setVelocitiesToTemperature(temperature)
+            if platformName == "CUDA":
+               print("Setting CudaDeviceIndex to: {}".format(myDevices))
+               platform.setPropertyDefaultValue('CudaDeviceIndex', myDevices)
 
-    output = args.output
+            elif platformName == "OpenCL":
+               print("Setting OpenCLDeviceIndex to: {}".format(myDevices))
+               platform.setPropertyDefaultValue('OpenCLDeviceIndex', myDevices)
 
-    types = None
-    if args.types:
-        # seems like we have JSON
-        types_str = args.types.replace("'", '"')
-        print(types_str)
-        types = ujson.loads(types_str)
-        if isinstance(types, dict):
-            for name, opts in types.items():
-                if 'filename' in opts and 'stride' in opts:
-                    output_file = os.path.join(output, opts['filename'])
+            print('Done')
+            print('%s Initialize Simulation' % datetime.now().strftime("%Y:%m:%d %H:%M:%S.%f")[:-3])
 
-                    selection = opts['selection']
-                    if selection is not None:
-                        mdtraj_topology = md.Topology.from_openmm(pdb.topology)
-                        atom_subset = mdtraj_topology.select(selection)
-                    else:
-                        atom_subset = None
+            try:
+                simulation = Simulation(
+                    pdb.topology,
+                    system,
+                    integrator,
+                    platform,
+                    properties
+                )
 
-                    simulation.reporters.append(
-                        md.reporters.DCDReporter(
-                            output_file, opts['stride'], atomSubset=atom_subset))
+                print("SIMULATION: ", simulation)
 
-                    print('Writing stride %d to file `%s` with selection `%s`' % (
-                        opts['stride'], opts['filename'], opts['selection']))
+            except Exception as e:
 
-    else:
-        # use defaults from arguments
-        output_file = os.path.join(output, 'output.dcd')
-        simulation.reporters.append(
-            DCDReporter(output_file, args.interval_store))
+                print('EXCEPTION on host: ', (socket.gethostname()))
+                print(traceback.format_exc())
+                raise
 
-    if not args.restart:
-        # if not a restart write first frame
-        state = simulation.context.getState(getPositions=True)
-        for r in simulation.reporters:
-            r.report(simulation, state)
+            print('Done.')
 
-    #if args.verbose:
-    if True:
+            print('# platform used:', simulation.context.getPlatform().getName())
 
-        report_stride = 10
+            if args.verbose:
+                print('# platforms available')
+                for no_platform in range(Platform.getNumPlatforms()):
+                    # noinspection PyCallByClass,PyTypeChecker
+                    print('(%d) %s' % (no_platform, Platform.getPlatform(no_platform).getName()))
 
-        if types:
-            report_stride = min([oty['stride'] for oty in types.values()])
+                #print(os.environ)
 
-        print("Adding state data reporter")
-        print("Verbose? : {}".format(args.verbose))
+                print(Platform.getPluginLoadFailures())
+                print(Platform.getDefaultPluginsDirectory())
 
-        simulation.reporters.append(
-            StateDataReporter(
-                stdout,
-                report_stride,
-                step=True,
-                totalEnergy=True,
-                kineticEnergy=True,
-                potentialEnergy=True,
-                temperature=True,
-                speed=True,
-                separator="  ||  ",
-        ))
+            if args.restart:
+                arr = np.load(args.restart)
+                simulation.context.setPositions(arr['positions'] * u.nanometers)
 
-        print("{}".format(simulation.reporters[-1]))
+                simulation.context.setVelocities(arr['velocities'] * u.nanometers/u.picosecond)
+                simulation.context.setPeriodicBoxVectors(*arr['box_vectors'] * u.nanometers)
+
+            else:
+                simulation.context.setPositions(pdb.positions)
+                pbv = system.getDefaultPeriodicBoxVectors()
+                simulation.context.setPeriodicBoxVectors(*pbv)
+                # set velocities to temperature in integrator
+                try:
+                    temperature = integrator.getTemperature()
+                except AttributeError:
+                    assert args.temperature > 0
+                    temperature = args.temperature * u.kelvin
+
+                print('# temperature:', temperature)
+
+                simulation.context.setVelocitiesToTemperature(temperature)
+
+            output = args.output
+
+            types = None
+            if args.types:
+                # seems like we have JSON
+                types_str = args.types.replace("'", '"')
+                print(types_str)
+                types = ujson.loads(types_str)
+                if isinstance(types, dict):
+                    for name, opts in types.items():
+                        if 'filename' in opts and 'stride' in opts:
+                            output_file = os.path.join(output, opts['filename'])
+
+                            selection = opts['selection']
+                            if selection is not None:
+                                mdtraj_topology = md.Topology.from_openmm(pdb.topology)
+                                atom_subset = mdtraj_topology.select(selection)
+                            else:
+                                atom_subset = None
+
+                            simulation.reporters.append(
+                                md.reporters.DCDReporter(
+                                    output_file, opts['stride'], atomSubset=atom_subset))
+
+                            print('Writing stride %d to file `%s` with selection `%s`' % (
+                                opts['stride'], opts['filename'], opts['selection']))
+
+            else:
+                # use defaults from arguments
+                output_file = os.path.join(output, 'output.dcd')
+                simulation.reporters.append(
+                    DCDReporter(output_file, args.interval_store))
+
+            if not args.restart:
+                # if not a restart write first frame
+                state = simulation.context.getState(getPositions=True)
+                for r in simulation.reporters:
+                    r.report(simulation, state)
+
+            #if args.verbose:
+            if True:
+
+                report_stride = 10
+
+                if types:
+                    report_stride = min([oty['stride'] for oty in types.values()])
+
+                print("Adding state data reporter")
+                print("Verbose? : {}".format(args.verbose))
+
+                simulation.reporters.append(
+                    StateDataReporter(
+                        stdout,
+                        report_stride,
+                        step=True,
+                        totalEnergy=True,
+                        kineticEnergy=True,
+                        potentialEnergy=True,
+                        temperature=True,
+                        speed=True,
+                        separator="  ||  ",
+                ))
+
+                print("{}".format(simulation.reporters[-1]))
+
+            retrying = False
+            print("Retried %d times"%n_retries)
+
+        except Exception as e:
+
+            print(traceback.format_exc())
+
+            if n_retries >= 10:
+                retrying = False
+
+            else:
+                n_retries += 1
 
     restart_file = os.path.join(output, 'restart.npz')
 
-    print('START SIMULATION')
+    print('%s START SIMULATION' % datetime.now().strftime("%Y:%m:%d %H:%M:%S.%f")[:-3])
 
     simulation.step(args.length)
 
-    print('DONE')
+    print('%s DONE' % datetime.now().strftime("%Y:%m:%d %H:%M:%S.%f")[:-3])
 
     state = simulation.context.getState(getPositions=True, getVelocities=True)
     pbv = state.getPeriodicBoxVectors(asNumpy=True)

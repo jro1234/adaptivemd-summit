@@ -303,9 +303,13 @@ def remote_analysis(
 
         if n_macrostates < 0:
 
-            def MinMaxScale(X, min=-1, max=1):
+            # ANALYSIS FOR SLOWEST PROCESS SAMPLING
+            # so we only consider 1 or 2 "slowest"
+            num_eigenvecs_to_compute = 2
+
+            def MinMaxScale(X, _min=-1, _max=1):
                 X_std = (X - X.min(axis=0)) / (X.max(axis=0) - X.min(axis=0))
-                X_scaled = X_std * (max - min) + min
+                X_scaled = X_std * (_max - _min) + _min
                 return X_scaled
 
             n_macrostates = int(0 - n_macrostates)
@@ -313,12 +317,10 @@ def remote_analysis(
             #  k-means Macrostates
             #
             current_timescales = m.timescales()
-            current_eigenvecs  = np.real(m.eigenvectors_right())#num_eigenvecs_to_compute)
+            current_eigenvecs  = np.real(m.eigenvectors_right(1+num_eigenvecs_to_compute))
             #current_eigenvals  = np.real(current_MSM_obj.eigenvalues())
-            #num_eigenvecs_to_compute = current_eigenvecs.shape[0]
-            num_eigenvecs_to_compute = 4
-            projected_microstate_coords_scaled = MinMaxScale(current_eigenvecs[:,1:num_eigenvecs_to_compute])
-            projected_microstate_coords_scaled *= np.sqrt(current_timescales[:num_eigenvecs_to_compute-1] / current_timescales[0]).reshape(1, num_eigenvecs_to_compute-1)
+            projected_microstate_coords_scaled = MinMaxScale(current_eigenvecs[:,1:])
+            projected_microstate_coords_scaled *= np.sqrt(current_timescales[:num_eigenvecs_to_compute] / current_timescales[0]).reshape(1, num_eigenvecs_to_compute)
             #kin_cont = np.cumsum(-1./np.log(np.abs(current_eigenvals[1:])))/2.
             #frac_kin_content=0.9
             #cut = kin_cont[kin_cont < kin_cont.max()*frac_kin_content]

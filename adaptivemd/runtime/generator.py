@@ -42,6 +42,9 @@ def workflow_generator_simple(
     mpi_ranks = 0,
     continuing = True,
     **kwargs,):
+    '''Rename this function, block-style make simple workflow
+    DAG but the function is complex.
+    '''
 
     logger.info("Starting workflow_generator_simple function")
     sampling_function = get_sampling_function(

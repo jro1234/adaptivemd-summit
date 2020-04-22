@@ -110,6 +110,13 @@ if __name__ == '__main__':
 
             logger.info("Checking for pre-existing, runnable tasks")
             rescue_tasks = list(filter(is_incomplete, project.tasks))
+            for i,rta in enumerate(rescue_tasks):
+                if hasattr(rta, 'trajectory'):
+                    if rta.trajectory.exists:
+                       logger.warning("Skipping rescue as data seems in place")
+                       logger.warning("{}.trajectory = {}".format(rta, rta.trajectory))
+                       rescue_tasks.pop(i)
+                       rta.state = 'success'
             rescue_uuids = list(map(lambda ta: ta.__uuid__, rescue_tasks))
             n_incomplete_tasks = len(rescue_tasks)
             logger.info("Found %d incomplete tasks to run" % n_incomplete_tasks)

@@ -118,7 +118,7 @@ class OpenMMEngine(Engine):
         initial_pdb = t.pre_link(self['pdb_file_stage'], Location('initial.pdb'))
         t.pre_link(self['system_file_stage'])
         t.pre_link(self['integrator_file_stage'])
-        t.pre_link(self['_executable_file_stage'])
+        t.pre_link(self['_executable_file_stage'], hard=True)
 
         if target.frame in [self['pdb_file'], self['pdb_file_stage']]:
             input_pdb = initial_pdb
@@ -174,8 +174,75 @@ class OpenMMEngine(Engine):
             args=self.args,
         )
 
-        t.append(cmd)
+        # TODO option for retry
+        # TODO use filenames from engine
+        retry = '\nj=0\ntries=3\n'
+        retry += '\ntrajfile=traj/protein.dcd\n\n'
+        "\n\n"
+        retry += (
+'function timestamp {{\n'
+' date +\'%Y-%m-%d %H:%M:%S.%3N\'\n'
+'}}\n'
+'while [ ! -f "$trajfile" ] && [ $j -le "$tries" ]\n'
+'do\n'
+' {0} & last="$!"\n'
+' sleep 20\n'
+'\n'
+' echo "$(timestamp) running.sh - checking for trajectory output"\n'
+' echo "$(timestamp) openmmrun  - PID: $last"\n'
+' echo "$(ps faux | grep $last | grep -v grep)"\n'
+' echo "$(timestamp) trajectory output"\n'
+' echo "$(ls -gt traj)"\n'
+'\n'
+' if [ ! -f $trajfile ]\n'
+' then\n'
+'  j=$((j+1))\n'
+'  echo "$(timestamp) output not found"\n'
+'\n'
+'  if [ "$(ps faux | grep $last | grep -v grep)" ]\n'
+'  then\n'
+'   kill "$last" || echo "kill missed"\n'
+'\n'
+'   echo "$(timestamp) found and kill last=$last"\n'
+'   echo "$(timestamp) waiting to check on kill"\n'
+'   sleep 5\n'
+'\n'
+'   if [ "$(ps faux | grep $last | grep -v grep)" ]\n'
+'   then\n'
+'    echo "$(timestamp) superkilling last=$last"\n'
+'    kill -9 "$last" || echo "superkill missed"\n'
+'\n'
+'   fi\n'
+'  fi\n'
+'\n'
+'  echo "$(timestamp) kill is done"\n'
+'\n'
+' else\n'
+'  echo "$(timestamp) seems like the trajectory is rolling out"\n'
+'  j=$((tries+1))\n'
+'\n'
+' fi\n'
+' echo "$(timestamp) Done $j retry iter of main task loop"\n'
+'\n'
+'done\n'
+'\n'
+'wait "$last"\n'
+'echo "$(timestamp) Done with main task loop"\n'
+)
 
+        cmd = 'python openmmrun.py {args} {types} -s {system} -i {integrator} -t {pdb} --length {length} {output}'.format(
+            pdb=input_pdb,
+            types=self._create_output_str(),
+            length=target.length,
+            system=self['system_file'].basename,
+            integrator=self['integrator_file'].basename,
+            output=output,
+            args=self.args,
+        )
+
+        cmd = retry.format(cmd)
+
+        t.append(cmd)
         t.put(output, target)
 
         return t

@@ -191,10 +191,13 @@ class WorkerScheduler(Scheduler):
         script_location = self.current_task_dir
 
         if os.path.exists(script_location):
-            logger.info('removing existing folder {}'.format(script_location))
             # the folder already exists, probably a failed previous attempt
             # a restart needs a clean folder so remove it now
-            shutil.rmtree(script_location)
+            #logger.info('removing existing folder {}'.format(script_location))
+            #shutil.rmtree(script_location)
+
+            logger.info('moomooving existing folder {}'.format(script_location))
+            shutil.move(script_location, script_location.replace("worker","broken"))
 
         # create a fresh folder
         os.makedirs(script_location)
@@ -724,9 +727,10 @@ class Worker(StorableMixin):
                                                  task_test, 'state', 'created', 'queued'))
                                             done = True
 
-                                        except RuntimeError as e:
+                                        except (FileNotFoundError, RuntimeError) as e:
                                             if attempt < retries:
-                                                logger.info("Connection Timeout #{0} ignored"
+                                                logger.warning(e)
+                                                logger.warning("Connection Timeout #{0} ignored"
                                                       .format(attempt))
                                                 attempt += 1
                                                 time.sleep(2)

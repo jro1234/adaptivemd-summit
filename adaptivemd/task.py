@@ -851,7 +851,7 @@ class PrePostTask(Task):
         self.pre = []
         self.post = []
 
-    def pre_link(self, f, name=None):
+    def pre_link(self, f, name=None, hard=False):
         """
         Add an action to create a link to a file (under a new name)
 
@@ -869,7 +869,7 @@ class PrePostTask(Task):
             the actual target location
 
         """
-        transaction = f.link(name)
+        transaction = f.link(name, hard=hard)
         self.pre.append(transaction)
         return transaction.target
 

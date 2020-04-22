@@ -7,6 +7,13 @@ logger = get_logger(__name__)
 from .util import get_picks, get_model, list_microstate_frames
 
 
+def start_from_initial(project, number=1, **kwargs):
+    
+    trajlist = list()
+    [trajlist.append(project.generators["openmm"].files["pdb_file"]) for _ in range(number)]
+    return trajlist
+
+
 def random_sampling_trajectories(project, number=1, **kwargs):
     '''
     Randomly sample frames from the body of trajectory data.

@@ -48,6 +48,7 @@ def create_workload_launcher(project, workload, session, args, cwd):
     js = os.path.join(session, job_state_filename)
     with open(js, "w") as f: f.write("UNLAUNCHED")
     n_tasks  = len(workload)
+    n_workers = int(1.2*n_tasks)
 
     if args.persist:
         n_database_nodes = 0

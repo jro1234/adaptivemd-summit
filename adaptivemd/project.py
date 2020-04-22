@@ -945,6 +945,26 @@ class Project(object):
         return taskstates
 
 
+    @property
+    def traj_lengths(self, deep_check=False):
+        """
+        Tallies of each traj length.
+        Returns
+        -------
+        count of the number of tasks in each observed task state.
+        """
+        trajlengths = dict()
+        if deep_check:
+            self.files._set.clear_cache()
+            self.files._set.load_indices()
+
+        for traj in self.trajectories:
+            if traj.length not in trajlengths: trajlengths[traj.length] = 1
+            else: trajlengths[traj.length] += 1
+
+        return trajlengths
+
+
     class EventTriggerTimer(threading.Thread):
         """
         A special thread to call the project trigger mechanism
